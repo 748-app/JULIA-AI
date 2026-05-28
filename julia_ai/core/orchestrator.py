@@ -6,18 +6,9 @@ entity in the JULIA AI multi-agent system. The Orchestrator:
 
 - Understands user requests and identifies task types
 - Plans workflows and decomposes complex tasks
-- Selects appropriate agents (in future phases)
-- Coordinates execution and validates results
+- Selects appropriate agents and coordinates execution
+- Validates results through critique agent
 - Manages context and memory access
-
-Phase 1 Status:
-    This is a minimal skeleton implementation. The Orchestrator:
-    - Initializes with configuration settings
-    - Provides basic status reporting
-    - Logs system state for debugging
-    
-    Actual orchestration logic (agent selection, workflow execution,
-    task planning) will be implemented in Phases 2-3.
 
 Architecture Principle:
     NO agent decides independently. All decisions flow through the Orchestrator.
@@ -31,6 +22,9 @@ from config.settings import Settings, MODEL_ROUTING
 from memory.short_term import ShortTermMemory
 from memory.long_term import LongTermMemory
 from memory.vector_store import VectorStore
+from agents.analysis_agent import AnalysisAgent
+from agents.code_agent import CodeAgent
+from agents.critique_agent import CritiqueAgent
 
 
 class Orchestrator:
@@ -62,7 +56,7 @@ class Orchestrator:
             settings: Optional Settings instance. If not provided, creates new one.
         """
         self.settings = settings or Settings()
-        self.version = "0.2.0"
+        self.version = "0.3.0"
         self.status = "initialized"
         self.started_at = None
         
@@ -70,6 +64,11 @@ class Orchestrator:
         self.short_term = ShortTermMemory(ttl_seconds=300)
         self.long_term = LongTermMemory(self.settings.DATA_DIR / "memory.db")
         self.vector_store = VectorStore(self.settings.DATA_DIR / "vector_store")
+        
+        # Initialize agents
+        self.analysis_agent = AnalysisAgent()
+        self.code_agent = CodeAgent()
+        self.critique_agent = CritiqueAgent()
         
         # Setup logging
         self._setup_logging()
@@ -243,6 +242,47 @@ class Orchestrator:
         else:
             self.logger.warning(f"Unknown memory action: {action}")
             return None
+
+    def dispatch(self, agent_name: str, task: str) -> dict:
+        """
+        Dispatch a task to a specialized agent.
+        
+        The Orchestrator is the ONLY entity that can dispatch tasks.
+        No agent decides independently - all work flows through here.
+        
+        Args:
+            agent_name: Name of the agent ("analysis", "code", "critique").
+            task: Task description to execute.
+        
+        Returns:
+            Dictionary with agent result and validation status.
+        """
+        self.logger.info(f"Dispatching '{task[:50]}...' to {agent_name} agent")
+        
+        # Select the appropriate agent
+        if agent_name == "analysis":
+            agent = self.analysis_agent
+        elif agent_name == "code":
+            agent = self.code_agent
+        elif agent_name == "critique":
+            agent = self.critique_agent
+        else:
+            self.logger.error(f"Unknown agent: {agent_name}")
+            return {"error": f"Unknown agent: {agent_name}"}
+        
+        # Execute the task
+        result = agent.execute(task)
+        
+        # Validate the result
+        is_valid = agent.validate(result)
+        
+        self.logger.info(f"Agent {agent_name} completed task. Valid: {is_valid}")
+        
+        return {
+            "agent": agent_name,
+            "result": result,
+            "valid": is_valid
+        }
 
     def __repr__(self) -> str:
         """String representation for debugging."""
