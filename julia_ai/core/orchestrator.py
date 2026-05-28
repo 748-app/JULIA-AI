@@ -28,6 +28,9 @@ import logging
 from pathlib import Path
 from datetime import datetime
 from config.settings import Settings, MODEL_ROUTING
+from memory.short_term import ShortTermMemory
+from memory.long_term import LongTermMemory
+from memory.vector_store import VectorStore
 
 
 class Orchestrator:
@@ -59,9 +62,14 @@ class Orchestrator:
             settings: Optional Settings instance. If not provided, creates new one.
         """
         self.settings = settings or Settings()
-        self.version = "0.1.0"
+        self.version = "0.2.0"
         self.status = "initialized"
         self.started_at = None
+        
+        # Initialize memory systems
+        self.short_term = ShortTermMemory(ttl_seconds=300)
+        self.long_term = LongTermMemory(self.settings.DATA_DIR / "memory.db")
+        self.vector_store = VectorStore(self.settings.DATA_DIR / "vector_store")
         
         # Setup logging
         self._setup_logging()
@@ -183,9 +191,59 @@ class Orchestrator:
         Future phases will add cleanup of agents, connections, etc.
         """
         self.logger.info("Shutting down JULIA AI...")
+        # Close long-term memory connection
+        self.long_term.close()
         self.status = "stopped"
         self.logger.info("Orchestrator stopped")
-    
+
+    def dispatch_memory(self, action: str, data: dict) -> any:
+        """
+        Dispatch memory operations to appropriate memory system.
+        
+        Args:
+            action: Type of action (store, retrieve, delete, search).
+            data: Dictionary containing operation parameters.
+        
+        Returns:
+            Result of the memory operation.
+        """
+        if action == "store_short":
+            key = data.get("key")
+            value = data.get("value")
+            ttl = data.get("ttl")
+            self.short_term.set(key, value, ttl)
+            return True
+        
+        elif action == "retrieve_short":
+            key = data.get("key")
+            return self.short_term.get(key)
+        
+        elif action == "store_long":
+            key = data.get("key")
+            value = data.get("value")
+            project_id = data.get("project_id", "default")
+            return self.long_term.store(key, value, project_id)
+        
+        elif action == "retrieve_long":
+            key = data.get("key")
+            project_id = data.get("project_id")
+            return self.long_term.retrieve(key, project_id)
+        
+        elif action == "vector_add":
+            doc_id = data.get("id")
+            text = data.get("text")
+            metadata = data.get("metadata")
+            return self.vector_store.add(doc_id, text, metadata)
+        
+        elif action == "vector_search":
+            query = data.get("query")
+            n_results = data.get("n_results", 5)
+            return self.vector_store.search(query, n_results)
+        
+        else:
+            self.logger.warning(f"Unknown memory action: {action}")
+            return None
+
     def __repr__(self) -> str:
         """String representation for debugging."""
         return f"<Orchestrator v{self.version} status={self.status}>"
