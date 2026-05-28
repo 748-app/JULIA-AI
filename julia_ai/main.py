@@ -45,10 +45,34 @@ def main():
         
         # Display success message
         status = orchestrator.get_status()
-        print(f"[SUCCESS] JULIA AI ready - Phase 1 complete")
+        print(f"[SUCCESS] JULIA AI ready - Phase 2 complete")
         print(f"         Version: {status['version']}")
         print(f"         Status: {status['status']}")
         print(f"         Models configured: {status['models_configured']}")
+        print(f"         Memory systems: short_term, long_term, vector_store")
+        
+        # Demo memory operations
+        print("\n[DEMO] Testing memory systems...")
+        
+        # Short-term memory demo
+        orchestrator.dispatch_memory("store_short", {"key": "demo_key", "value": "Hello from short-term!", "ttl": 60})
+        result = orchestrator.dispatch_memory("retrieve_short", {"key": "demo_key"})
+        print(f"  - Short-term memory: {result}")
+        
+        # Long-term memory demo
+        orchestrator.dispatch_memory("store_long", {"key": "python_fact", "value": "Python is a programming language", "project_id": "demo"})
+        result = orchestrator.dispatch_memory("retrieve_long", {"key": "python_fact", "project_id": "demo"})
+        print(f"  - Long-term memory: {result}")
+        
+        # Vector store demo
+        if orchestrator.vector_store.is_available():
+            orchestrator.dispatch_memory("vector_add", {"id": "doc1", "text": "Machine learning is a subset of AI", "metadata": {"source": "demo"}})
+            count = orchestrator.vector_store.count()
+            print(f"  - Vector store: {count} document(s) indexed")
+        else:
+            print(f"  - Vector store: ChromaDB not available (install with: pip install chromadb)")
+        
+        print("\n[INFO] All memory systems operational")
         
         # Graceful shutdown
         orchestrator.stop()

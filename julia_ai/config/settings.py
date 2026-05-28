@@ -18,7 +18,7 @@ Model Routing Strategy (Phase 1 - Configuration Only):
 
 Windows Compatibility:
     All paths use pathlib.Path for cross-platform compatibility.
-    No hardcoded slashes (/ or \) anywhere in this module.
+    No hardcoded slashes (/ or \\) anywhere in this module.
 """
 
 import os
@@ -63,9 +63,11 @@ class Settings:
         
         # Paths (using pathlib for Windows compatibility)
         self.LOGS_DIR = self.BASE_DIR / "logs"
+        self.DATA_DIR = self.BASE_DIR / "data"
         
-        # Ensure logs directory exists
+        # Ensure directories exist
         self.LOGS_DIR.mkdir(parents=True, exist_ok=True)
+        self.DATA_DIR.mkdir(parents=True, exist_ok=True)
     
     def is_api_key_set(self, provider: str) -> bool:
         """
