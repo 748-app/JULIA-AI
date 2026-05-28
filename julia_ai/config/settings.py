@@ -1,4 +1,4 @@
-"""
+r"""
 JULIA AI Configuration Settings.
 
 This module contains all configuration for the JULIA AI system:
